@@ -23,7 +23,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo 3. Iniciando servidor Next.js...
-echo Abre tu navegador en: http://localhost:3000
+echo Abre tu navegador en: http://localhost:3001
 echo.
 call npm run dev
 pause

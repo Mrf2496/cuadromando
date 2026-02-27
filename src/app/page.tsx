@@ -6,8 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/LoginForm";
-import { useFirebaseSync } from "@/hooks/useFirebaseSync";
-// Imports from firebase removed
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 // UI Components
 import { ChatBot } from "@/components/ChatBot";
 import { Button } from "@/components/ui/button";
@@ -94,6 +93,31 @@ import {
   XCircle,
   LogOut,
 } from "lucide-react";
+
+// ==========================================
+// COMPONENTES DE UTILIDAD
+// ==========================================
+
+const Icon = ({ name, className, style }: { name: string | any, className?: string, style?: React.CSSProperties }) => {
+  // Si ya es un componente (función), lo renderizamos directamente
+  if (typeof name !== 'string') {
+    const IconComp = name;
+    return <IconComp className={className} style={style} />;
+  }
+
+  const icons: any = {
+    LayoutDashboard, Target, Users, FileText, Settings, Menu, X, Sun, Moon, Bell,
+    ChevronRight, Plus, Pencil, Trash2, Download, Upload, Save, AlertTriangle,
+    CheckCircle2, Clock, TrendingUp, TrendingDown, Minus, Search, Filter,
+    MoreHorizontal, Building2, Briefcase, Calendar, DollarSign, BarChart3,
+    Activity, Award, Zap, Shield, Lightbulb, Heart, ArrowRight, Eye, Edit,
+    Copy, RefreshCw, ChevronDown, ChevronLeft, Home, Layers, PieChartIcon,
+    FileBarChart, Database, Sparkles, Leaf, UsersRound, Factory, Cpu, Edit2,
+    PlusCircle, XCircle, LogOut
+  };
+  const IconComp = icons[name] || icons['Activity']; // Fallback
+  return <IconComp className={className} style={style} />;
+};
 
 // ==========================================
 // TIPOS
@@ -556,27 +580,15 @@ export default function StrategicPlanSystem() {
   const [activeView, setActiveView] = useState("dashboard");
   const [selectedEjeId, setSelectedEjeId] = useState<string>("");
 
-  // Data state via Firebase Realtime Hook
-  const { data: ejes, setData: setEjes, saveItem: saveEje, removeItem: removeEje } = useFirebaseSync('ejes', EJES_INICIALES);
-  const { data: objetivos, setData: setObjetivos, saveItem: saveObjetivo, removeItem: removeObjetivo } = useFirebaseSync('objetivos', OBJETIVOS_INICIALES);
-  const { data: politicas, setData: setPoliticas, saveItem: savePolitica, removeItem: removePolitica } = useFirebaseSync('politicas', POLITICAS_INICIALES);
-  const { data: metas, setData: setMetas, saveItem: saveMeta, removeItem: removeMeta } = useFirebaseSync('metas', METAS_INICIALES);
-  const { data: estrategias, setData: setEstrategias, saveItem: saveEstrategia, removeItem: removeEstrategia } = useFirebaseSync('estrategias', ESTRATEGIAS_INICIALES);
-  const { data: planesAccion, setData: setPlanesAccion, saveItem: savePlan, removeItem: removePlan } = useFirebaseSync('planesAccion', PLANES_ACCION_INICIALES);
-  const { data: equipos, setData: setEquipos, saveItem: saveEquipo, removeItem: removeEquipo } = useFirebaseSync('equipos', EQUIPOS_INICIALES);
-  const { data: empleados, setData: setEmpleados, saveItem: saveEmpleado, removeItem: removeEmpleado } = useFirebaseSync('empleados', EMPLEADOS_INICIALES);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginForm />;
-  }
+  // Data state via LocalStorage Hook (Local Persistence)
+  const { data: ejes, setData: setEjes, saveItem: saveEje, removeItem: removeEje } = useLocalStorage('ejes', EJES_INICIALES);
+  const { data: objetivos, setData: setObjetivos, saveItem: saveObjetivo, removeItem: removeObjetivo } = useLocalStorage('objetivos', OBJETIVOS_INICIALES);
+  const { data: politicas, setData: setPoliticas, saveItem: savePolitica, removeItem: removePolitica } = useLocalStorage('politicas', POLITICAS_INICIALES);
+  const { data: metas, setData: setMetas, saveItem: saveMeta, removeItem: removeMeta } = useLocalStorage('metas', METAS_INICIALES);
+  const { data: estrategias, setData: setEstrategias, saveItem: saveEstrategia, removeItem: removeEstrategia } = useLocalStorage('estrategias', ESTRATEGIAS_INICIALES);
+  const { data: planesAccion, setData: setPlanesAccion, saveItem: savePlan, removeItem: removePlan } = useLocalStorage('planesAccion', PLANES_ACCION_INICIALES);
+  const { data: equipos, setData: setEquipos, saveItem: saveEquipo, removeItem: removeEquipo } = useLocalStorage('equipos', EQUIPOS_INICIALES);
+  const { data: empleados, setData: setEmpleados, saveItem: saveEmpleado, removeItem: removeEmpleado } = useLocalStorage('empleados', EMPLEADOS_INICIALES);
 
   // Modal states
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -627,12 +639,26 @@ export default function StrategicPlanSystem() {
     endDate: "2030-12-31",
   });
 
+  // Cyclic animation state for Dashboard cards
+  const [activeMagneticIndex, setActiveMagneticIndex] = useState(0);
+
+  useEffect(() => {
+    if (activeView === "dashboard") {
+      const interval = setInterval(() => {
+        setActiveMagneticIndex((prev) => (prev + 1) % 4);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeView]);
+
   // Mounted state for theme
   const [mounted, setMounted] = useState(false);
   useLayoutEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+
+
 
   // Calculate progress by eje
   const calculateEjeProgress = (ejeId: string) => {
@@ -1083,25 +1109,55 @@ export default function StrategicPlanSystem() {
 
   // Sidebar navigation items
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "reportes", label: "Reportes Inteligentes", icon: BarChart3 },
-    { id: "ejes", label: "Ejes Estratégicos", icon: Layers },
-    { id: "objetivos", label: "Objetivos", icon: Target },
-    { id: "politicas", label: "Políticas", icon: FileText },
-    { id: "metas", label: "Metas", icon: Target },
-    { id: "estrategias", label: "Estrategias", icon: Zap },
-    { id: "planes", label: "Planes de Acción", icon: Briefcase },
-    { id: "equipos", label: "Equipos", icon: Users },
-    { id: "empleados", label: "Empleados", icon: UsersRound },
-    { id: "configuracion", label: "Configuración", icon: Settings },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, colorClass: "icon-cyan" },
+    { id: "reportes", label: "Reportes Inteligentes", icon: BarChart3, colorClass: "icon-violet" },
+    { id: "ejes", label: "Ejes Estratégicos", icon: Layers, colorClass: "icon-emerald" },
+    { id: "objetivos", label: "Objetivos", icon: Target, colorClass: "icon-magenta" },
+    { id: "politicas", label: "Políticas", icon: FileText, colorClass: "icon-blue" },
+    { id: "metas", label: "Metas", icon: Target, colorClass: "icon-gold" },
+    { id: "estrategias", label: "Estrategias", icon: Zap, colorClass: "icon-violet" },
+    { id: "planes", label: "Planes de Acción", icon: Briefcase, colorClass: "icon-cyan" },
+    { id: "equipos", label: "Equipos", icon: Users, colorClass: "icon-emerald" },
+    { id: "empleados", label: "Empleados", icon: UsersRound, colorClass: "icon-magenta" },
+    { id: "configuracion", label: "Configuración", icon: Settings, colorClass: "icon-blue" },
   ];
 
-  if (!mounted) {
+  // Animation variants For staggered entrance
+  const dashboardContainer = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 3,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const dashboardItem = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    show: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 100,
+        damping: 15
+      }
+    }
+  };
+
+  if (loading || !mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  if (!user) {
+    return <LoginForm />;
   }
 
   const yearSelectorPlugin = (
@@ -1125,7 +1181,7 @@ export default function StrategicPlanSystem() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background flex" suppressHydrationWarning>
         {/* Desktop Sidebar */}
         <motion.aside
           initial={false}
@@ -1145,7 +1201,7 @@ export default function StrategicPlanSystem() {
                     <Building2 className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <span className="font-bold text-sm">{planInfo.organizationName}</span>
+                    <span className="font-bold text-sm animate-premium-logo">{planInfo.organizationName}</span>
                     <p className="text-xs text-muted-foreground">Plan {planInfo.planPeriod}</p>
                   </div>
                 </motion.div>
@@ -1168,14 +1224,14 @@ export default function StrategicPlanSystem() {
                   <TooltipTrigger asChild>
                     <motion.button
                       onClick={() => setActiveView(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${activeView === item.id
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group ${activeView === item.id
+                        ? "bg-primary/20 text-primary border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.1)]"
+                        : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
                         }`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={{ scale: 1.05, x: 4 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <item.icon className="w-5 h-5 shrink-0" />
+                      <item.icon className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-125 group-hover:rotate-6 ${item.colorClass} ${activeView === item.id ? 'animate-neon' : ''}`} />
                       <AnimatePresence mode="wait">
                         {sidebarOpen && (
                           <motion.span
@@ -1200,36 +1256,19 @@ export default function StrategicPlanSystem() {
             </nav>
           </ScrollArea>
 
-          <div className="p-4 border-t border-border flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              >
-                {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </Button>
+          <div className="p-4 border-t border-border">
+            <Button
+              variant="ghost"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${sidebarOpen ? 'justify-start' : 'justify-center'}`}
+            >
+              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               {sidebarOpen && (
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground font-medium">
                   {theme === "dark" ? "Modo claro" : "Modo oscuro"}
                 </span>
               )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={signOut}
-                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-              >
-                <LogOut className="w-5 h-5" />
-              </Button>
-              {sidebarOpen && (
-                <span className="text-sm text-red-500 font-medium">
-                  Cerrar Sesión
-                </span>
-              )}
-            </div>
+            </Button>
           </div>
         </motion.aside>
 
@@ -1247,7 +1286,7 @@ export default function StrategicPlanSystem() {
                   <Building2 className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <span className="font-bold">{planInfo.organizationName}</span>
+                  <span className="font-bold animate-premium-logo">{planInfo.organizationName}</span>
                   <p className="text-xs text-muted-foreground">Plan Estratégico {planInfo.planPeriod}</p>
                 </div>
               </div>
@@ -1264,28 +1303,17 @@ export default function StrategicPlanSystem() {
                       : "hover:bg-accent text-muted-foreground"
                       }`}
                   >
-                    <item.icon className="w-5 h-5" />
+                    <item.icon className={`w-5 h-5 ${item.colorClass}`} />
                     <span className="text-sm font-medium">{item.label}</span>
                   </motion.button>
                 ))}
 
-                <div className="pt-4 mt-4 border-t border-border">
-                  <motion.button
-                    onClick={() => {
-                      signOut();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    <span className="text-sm font-medium">Cerrar Sesión</span>
-                  </motion.button>
-                </div>
+                {/* Logout removed */}
               </nav>
             </SheetContent>
           </Sheet>
           <div className="text-center">
-            <h1 className="font-bold text-sm">{planInfo.organizationName}</h1>
+            <h1 className="font-bold text-sm animate-premium-logo">{planInfo.organizationName}</h1>
             <p className="text-xs text-muted-foreground">Plan Estratégico {planInfo.planPeriod}</p>
           </div>
           <Button
@@ -1313,8 +1341,8 @@ export default function StrategicPlanSystem() {
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Dashboard Ejecutivo</h1>
-                      <p className="text-muted-foreground mt-1">
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-cyan animate-banner">Dashboard Ejecutivo</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">
                         Plan Estratégico {planInfo.organizationName} {planInfo.planPeriod} - {planInfo.planModel}
                       </p>
                     </div>
@@ -1323,55 +1351,78 @@ export default function StrategicPlanSystem() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          Avance General
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">{overallProgress()}%</div>
-                        <Progress value={overallProgress()} className="mt-2" />
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          Ejes Estratégicos
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">{ejes.length}</div>
-                        <p className="text-sm text-muted-foreground mt-2">configurados</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          Objetivos
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">{objetivos.length}</div>
-                        <p className="text-sm text-muted-foreground mt-2">estratégicos</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                          Planes de Acción
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">{planesAccion.length}</div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {planesAccion.filter(pa => pa.status === "in_progress").length} en progreso
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
+                  <motion.div
+                    variants={dashboardContainer}
+                    initial="hidden"
+                    animate="show"
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+                  >
+                    <motion.div variants={dashboardItem}>
+                      <Card className={`relative overflow-hidden glass-card hover-shine h-full ${activeMagneticIndex === 0 ? 'animate-magnetic' : ''}`}>
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                            Avance General
+                            <Activity className={`w-4 h-4 icon-cyan ${activeMagneticIndex === 0 ? 'animate-neon' : ''}`} />
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold">{overallProgress()}%</div>
+                          <Progress value={overallProgress()} className="mt-2" />
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+
+                    <motion.div variants={dashboardItem}>
+                      <Card className={`relative overflow-hidden glass-card hover-shine h-full ${activeMagneticIndex === 1 ? 'animate-magnetic' : ''}`}>
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-green-500"></div>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                            Ejes Estratégicos
+                            <Layers className={`w-4 h-4 icon-emerald ${activeMagneticIndex === 1 ? 'animate-neon' : ''}`} />
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold">{ejes.length}</div>
+                          <p className="text-sm text-muted-foreground mt-2">configurados</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+
+                    <motion.div variants={dashboardItem}>
+                      <Card className={`relative overflow-hidden glass-card hover-shine h-full ${activeMagneticIndex === 2 ? 'animate-magnetic' : ''}`}>
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-magenta-400 to-purple-600"></div>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                            Objetivos
+                            <Target className={`w-4 h-4 icon-magenta ${activeMagneticIndex === 2 ? 'animate-neon' : ''}`} />
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold">{objetivos.length}</div>
+                          <p className="text-sm text-muted-foreground mt-2">estratégicos</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+
+                    <motion.div variants={dashboardItem}>
+                      <Card className={`relative overflow-hidden glass-card hover-shine h-full ${activeMagneticIndex === 3 ? 'animate-magnetic' : ''}`}>
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-600"></div>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                            Planes de Acción
+                            <Briefcase className={`w-4 h-4 icon-blue ${activeMagneticIndex === 3 ? 'animate-neon' : ''}`} />
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold">{planesAccion.length}</div>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {planesAccion.filter(pa => pa.status === "in_progress").length} en progreso
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </motion.div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
@@ -1459,7 +1510,7 @@ export default function StrategicPlanSystem() {
                               <CardContent className="pt-4">
                                 <div className="flex items-start justify-between">
                                   <div className="flex items-center gap-2">
-                                    <eje.icon className="w-5 h-5" style={{ color: eje.color }} />
+                                    <Icon name={eje.icon} className="w-5 h-5" style={{ color: eje.color }} />
                                     <h4 className="font-semibold text-sm">{eje.name}</h4>
                                   </div>
                                   <div className="flex items-center gap-1">
@@ -1496,8 +1547,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="ejes" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Ejes Estratégicos</h1>
-                      <p className="text-muted-foreground mt-1">Los 6 ejes fundamentales de desarrollo y crecimiento solidario</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-emerald animate-banner">Ejes Estratégicos</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Los 6 ejes fundamentales de desarrollo y crecimiento solidario</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -1523,7 +1574,7 @@ export default function StrategicPlanSystem() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${eje.color}20` }}>
-                                  <eje.icon className="w-6 h-6" style={{ color: eje.color }} />
+                                  <Icon name={eje.icon} className="w-6 h-6" style={{ color: eje.color }} />
                                 </div>
                                 <div>
                                   <CardTitle className="text-lg">{eje.name}</CardTitle>
@@ -1588,7 +1639,7 @@ export default function StrategicPlanSystem() {
                                   const StatusIcon = status.icon;
                                   return (
                                     <div className="flex items-center justify-center gap-1 pt-1 border-t">
-                                      <StatusIcon className={`w-3 h-3 ${status.color}`} />
+                                      <Icon name={status.icon} className={`w-3 h-3 ${status.color}`} />
                                       <span className={`text-xs ${status.color}`}>{status.label}</span>
                                     </div>
                                   );
@@ -1619,8 +1670,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="objetivos" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Objetivos Estratégicos</h1>
-                      <p className="text-muted-foreground mt-1">Objetivos por cada eje estratégico</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-purple animate-banner">Objetivos Estratégicos</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Objetivos por cada eje estratégico</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -1661,7 +1712,7 @@ export default function StrategicPlanSystem() {
                                   className="w-10 h-10 rounded-lg flex items-center justify-center"
                                   style={{ backgroundColor: `${eje.color}20` }}
                                 >
-                                  <eje.icon className="w-5 h-5" style={{ color: eje.color }} />
+                                  <Icon name={eje.icon} className="w-5 h-5" style={{ color: eje.color }} />
                                 </div>
                                 <div>
                                   <CardTitle className="text-base flex items-center gap-2">
@@ -1683,7 +1734,7 @@ export default function StrategicPlanSystem() {
                                   <span className="text-xs font-medium">{ejeAvgProgress}%</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <EjeStatusIcon className={`w-3 h-3 ${ejeStatus.color}`} />
+                                  <Icon name={ejeStatus.icon} className={`w-3 h-3 ${ejeStatus.color}`} />
                                   <span className={`text-[10px] ${ejeStatus.color}`}>{ejeStatus.label}</span>
                                 </div>
                               </div>
@@ -1712,7 +1763,7 @@ export default function StrategicPlanSystem() {
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-1">
                                             <Badge variant="outline" className="text-[10px]">{obj.code}</Badge>
-                                            <ObjTrafficIcon className="w-3 h-3" style={{ color: objTrafficLight.color }} />
+                                            <Icon name={objTrafficLight.icon} className="w-3 h-3" style={{ color: objTrafficLight.color }} />
                                           </div>
                                           <p className="text-xs truncate mt-0.5">{obj.description}</p>
                                           <div className="flex items-center gap-2 mt-1">
@@ -1765,8 +1816,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="politicas" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Políticas Institucionales</h1>
-                      <p className="text-muted-foreground mt-1">Políticas por cada eje estratégico</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-cyan animate-banner">Políticas Institucionales</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Políticas por cada eje estratégico</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -1787,7 +1838,7 @@ export default function StrategicPlanSystem() {
                           <div className="h-1" style={{ backgroundColor: eje.color }} />
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
-                              <eje.icon className="w-4 h-4" style={{ color: eje.color }} />
+                              <Icon name={eje.icon} className="w-4 h-4" style={{ color: eje.color }} />
                               {eje.name}
                             </CardTitle>
                           </CardHeader>
@@ -1823,8 +1874,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="metas" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Metas Corporativas</h1>
-                      <p className="text-muted-foreground mt-1">Metas agrupadas por Eje Estratégico</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-emerald animate-banner">Metas Corporativas</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Metas agrupadas por Eje Estratégico</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -1860,7 +1911,7 @@ export default function StrategicPlanSystem() {
                                 className="w-10 h-10 rounded-lg flex items-center justify-center"
                                 style={{ backgroundColor: eje.color }}
                               >
-                                <eje.icon className="w-5 h-5 text-white" />
+                                <Icon name={eje.icon} className="w-5 h-5 text-white" />
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -1931,7 +1982,7 @@ export default function StrategicPlanSystem() {
                                               <span className="text-[10px] font-medium">{metaProgress}%</span>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                              <MetaStatusIcon className={`w-3 h-3 ${metaStatus.color}`} />
+                                              <Icon name={metaStatus.icon} className={`w-3 h-3 ${metaStatus.color}`} />
                                               <span className={`text-[10px] ${metaStatus.color}`}>{metaStatus.label}</span>
                                             </div>
                                           </div>
@@ -1978,8 +2029,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="estrategias" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Estrategias</h1>
-                      <p className="text-muted-foreground mt-1">Estrategias por cada eje estratégico</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-purple animate-banner">Estrategias</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Estrategias por cada eje estratégico</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -2000,7 +2051,7 @@ export default function StrategicPlanSystem() {
                           <div className="h-1" style={{ backgroundColor: eje.color }} />
                           <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center gap-2">
-                              <eje.icon className="w-4 h-4" style={{ color: eje.color }} />
+                              <Icon name={eje.icon} className="w-4 h-4" style={{ color: eje.color }} />
                               {eje.name}
                             </CardTitle>
                           </CardHeader>
@@ -2037,8 +2088,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="planes" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Planes de Acción</h1>
-                      <p className="text-muted-foreground mt-1">Gestione y actualice los planes de acción</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-cyan animate-banner">Planes de Acción</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Gestione y actualice los planes de acción</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -2168,8 +2219,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="equipos" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Equipos de Trabajo</h1>
-                      <p className="text-muted-foreground mt-1">Estructura organizacional de la cooperativa</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-emerald animate-banner">Equipos de Trabajo</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Estructura organizacional de la cooperativa</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -2313,8 +2364,8 @@ export default function StrategicPlanSystem() {
                 <motion.div key="empleados" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold">Empleados</h1>
-                      <p className="text-muted-foreground mt-1">Listado de colaboradores de la organización</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold title-gradient-purple animate-banner">Empleados</h1>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Listado de colaboradores de la organización</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -2387,11 +2438,11 @@ export default function StrategicPlanSystem() {
                 <motion.div key="reportes" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-2">
+                      <h1 className="text-2xl lg:text-3xl font-bold flex items-center gap-2 title-gradient-cyan animate-banner">
                         <BarChart3 className="w-7 h-7 text-primary" />
                         Reportes Inteligentes
                       </h1>
-                      <p className="text-muted-foreground mt-1">Análisis de avance con filtros corporativos y personales</p>
+                      <p className="text-muted-foreground mt-1 animate-banner-delayed">Análisis de avance con filtros corporativos y personales</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {yearSelectorPlugin}
@@ -2890,8 +2941,8 @@ export default function StrategicPlanSystem() {
               {activeView === "configuracion" && (
                 <motion.div key="configuracion" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                   <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold">Configuración</h1>
-                    <p className="text-muted-foreground mt-1">Administración general del sistema de plan estratégico</p>
+                    <h1 className="text-2xl lg:text-3xl font-bold title-gradient-emerald animate-banner">Configuración</h1>
+                    <p className="text-muted-foreground mt-1 animate-banner-delayed">Administración general del sistema de plan estratégico</p>
                   </div>
 
                   {/* Plan Info Card */}

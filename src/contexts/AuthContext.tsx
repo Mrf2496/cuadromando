@@ -1,16 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth } from '@/lib/firebase';
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-  GoogleAuthProvider,
-  signInWithPopup
-} from 'firebase/auth';
 
 export interface User {
   uid: string;
@@ -35,41 +25,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-        });
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    // Simular carga de sesión local (Offline Deployment)
+    const savedUser = localStorage.getItem('antigravity_session');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+    setLoading(false);
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    return signInWithEmailAndPassword(auth, email, password);
+    // Modo Local: Cualquier contraseña funciona
+    const mockUser: User = {
+      uid: 'local-user-' + btoa(email),
+      email,
+      displayName: email.split('@')[0],
+    };
+    setUser(mockUser);
+    localStorage.setItem('antigravity_session', JSON.stringify(mockUser));
+    return mockUser;
   };
 
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    return signInWithPopup(auth, provider);
+    const mockUser: User = {
+      uid: 'google-mock-user',
+      email: 'google-user@antigravity.local',
+      displayName: 'Google Local User',
+    };
+    setUser(mockUser);
+    localStorage.setItem('antigravity_session', JSON.stringify(mockUser));
+    return mockUser;
   };
 
   const signUp = async (email: string, password: string) => {
-    return createUserWithEmailAndPassword(auth, email, password);
+    return signIn(email, password);
   };
 
   const signOut = async () => {
-    return firebaseSignOut(auth);
+    setUser(null);
+    localStorage.removeItem('antigravity_session');
   };
 
   const resetPassword = async (email: string) => {
-    return sendPasswordResetEmail(auth, email);
+    console.log("Reset password requested for (LOCAL MODE):", email);
   };
 
   const value = {
